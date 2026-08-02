@@ -1,0 +1,6 @@
+{
+  "name": "Apex One ERP",
+  "description": "Commercial-grade Multi-Tenant SaaS & On-Premise Enterprise ERP Suite built with .NET 8 / React 19 Clean Architecture, CQRS, RBAC, and real-time audit logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
