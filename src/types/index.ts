@@ -229,6 +229,55 @@ export interface PurchaseRequisitionItem {
   estimatedUnitPrice: number;
 }
 
+export type WorkflowTargetType = 'PurchaseRequisition' | 'PurchaseOrder' | 'SalesOrder';
+
+export interface WorkflowStepConfig {
+  stepNumber: number;
+  stepName: string;
+  requiredRole: Role;
+  minAmountUSD: number; // Applies if document total >= minAmountUSD
+  maxAmountUSD?: number;
+  description: string;
+  slaHours?: number; // Predefined SLA target duration in hours
+}
+
+export interface WorkflowRule {
+  id: string;
+  name: string;
+  targetType: WorkflowTargetType;
+  description: string;
+  isActive: boolean;
+  minOrderAmountUSD: number; // Threshold to trigger this workflow rule
+  steps: WorkflowStepConfig[];
+  updatedAt: string;
+  updatedByUserName: string;
+}
+
+export interface DocumentApprovalStepLog {
+  stepNumber: number;
+  stepName: string;
+  requiredRole: Role;
+  minAmountUSD: number;
+  slaHours?: number;
+  stepStartedAt?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
+  approvedByUserId?: string;
+  approvedByUserName?: string;
+  approvedByUserRole?: Role;
+  approvedAt?: string;
+  comments?: string;
+}
+
+export interface DocumentWorkflowState {
+  ruleId: string;
+  ruleName: string;
+  currentStepIndex: number;
+  totalSteps: number;
+  approvalChain: DocumentApprovalStepLog[];
+  isFullyApproved: boolean;
+  isRejected: boolean;
+}
+
 export interface PurchaseRequisition {
   id: string;
   prNumber: string; // e.g. "PR-2026-001"
@@ -243,6 +292,7 @@ export interface PurchaseRequisition {
   updatedAt: string;
   approvedByUserName?: string;
   convertedPoNumber?: string;
+  workflowState?: DocumentWorkflowState;
 }
 
 export interface PurchaseOrderItem {
@@ -274,6 +324,7 @@ export interface PurchaseOrder {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  workflowState?: DocumentWorkflowState;
 }
 
 export interface Supplier {

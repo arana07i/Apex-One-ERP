@@ -556,8 +556,38 @@ export const INITIAL_PURCHASE_REQUISITIONS: PurchaseRequisition[] = [
     ],
     totalEstimatedAmount: 11200.00,
     notes: 'Urgent stock replenishment requested due to low stock threshold breach.',
-    createdAt: new Date(Date.now() - 1000 * 3600 * 10).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 3600 * 32).toISOString(), // 32 hours ago -> SLA Breached (>24h SLA)
+    updatedAt: new Date(Date.now() - 1000 * 3600 * 32).toISOString(),
+  },
+  {
+    id: 'pr-2026-002',
+    prNumber: 'PR-2026-002',
+    requestedByUserId: 'usr-wh-02',
+    requestedByUserName: 'Marcus Vance',
+    department: 'Warehouse Operations',
+    status: PurchaseRequisitionStatus.PendingApproval,
+    items: [
+      { id: 'pri-02', productId: 'prod-01', productSku: 'SKU-MCU-328P', productName: 'High-Performance 32-bit Microcontroller Core', quantityRequested: 150, estimatedUnitPrice: 38.00 },
+    ],
+    totalEstimatedAmount: 5700.00,
+    notes: 'Components needed for planned Q3 manufacturing run.',
+    createdAt: new Date(Date.now() - 1000 * 3600 * 10).toISOString(), // 10 hours ago -> SLA Warning (75%+ of 12h SLA)
     updatedAt: new Date(Date.now() - 1000 * 3600 * 10).toISOString(),
+  },
+  {
+    id: 'pr-2026-003',
+    prNumber: 'PR-2026-003',
+    requestedByUserId: 'usr-admin-01',
+    requestedByUserName: 'Sarah Connor',
+    department: 'Executive Sourcing',
+    status: PurchaseRequisitionStatus.PendingApproval,
+    items: [
+      { id: 'pri-03', productId: 'prod-03', productSku: 'SKU-ALU-6061', productName: 'Precision Anodized Aluminum Ingot', quantityRequested: 500, estimatedUnitPrice: 14.50 },
+    ],
+    totalEstimatedAmount: 7250.00,
+    notes: 'Fresh raw material requisition for automotive frame production.',
+    createdAt: new Date(Date.now() - 1000 * 3600 * 2).toISOString(), // 2 hours ago -> On Time
+    updatedAt: new Date(Date.now() - 1000 * 3600 * 2).toISOString(),
   },
 ];
 
@@ -693,6 +723,190 @@ export const INITIAL_NOTIFICATIONS: ERPNotification[] = [
   },
 ];
 
+import {
+  WorkflowRule,
+  WorkflowTargetType,
+  DocumentWorkflowState,
+} from '../../types/index.js';
+
+// Seed Approval Workflows
+export const INITIAL_WORKFLOW_RULES: WorkflowRule[] = [
+  {
+    id: 'wf-pr-01',
+    name: 'Standard Purchase Requisition Multi-Tier Approval',
+    targetType: 'PurchaseRequisition',
+    description: 'Enforces department lead, procurement lead, and executive finance sign-off based on requested value.',
+    isActive: true,
+    minOrderAmountUSD: 0,
+    steps: [
+      {
+        stepNumber: 1,
+        stepName: 'Department & Inventory Control Review',
+        requiredRole: Role.InventorySpecialist,
+        minAmountUSD: 0,
+        description: 'Verify operational necessity and stock depletion justification.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 2,
+        stepName: 'Procurement Sourcing Lead Approval',
+        requiredRole: Role.ProcurementLead,
+        minAmountUSD: 5000,
+        description: 'Validate supplier pricing, lead times, and budget availability.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 3,
+        stepName: 'Executive Operations & Admin Authorization',
+        requiredRole: Role.Admin,
+        minAmountUSD: 25000,
+        description: 'Final executive authorization for high-value procurement commitments.',
+        slaHours: 48,
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+    updatedByUserName: 'Sarah Connor (Admin)',
+  },
+  {
+    id: 'wf-po-01',
+    name: 'Enterprise Purchase Order Governance & Compliance Chain',
+    targetType: 'PurchaseOrder',
+    description: 'Sequential multi-role review for binding commercial commitments with suppliers.',
+    isActive: true,
+    minOrderAmountUSD: 0,
+    steps: [
+      {
+        stepNumber: 1,
+        stepName: 'Procurement Sourcing Lead Review',
+        requiredRole: Role.ProcurementLead,
+        minAmountUSD: 0,
+        description: 'Verify commercial terms, discount rates, and delivery schedules.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 2,
+        stepName: 'Compliance & Quality Audit Sign-off',
+        requiredRole: Role.Auditor,
+        minAmountUSD: 10000,
+        description: 'Ensure vendor compliance, ESG standards, and contract terms.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 3,
+        stepName: 'Warehouse Operations Capacity Check',
+        requiredRole: Role.WarehouseManager,
+        minAmountUSD: 25000,
+        description: 'Confirm bay, zone, and receiving dock capacity for inbound shipments.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 4,
+        stepName: 'Executive C-Suite / Admin Approval',
+        requiredRole: Role.Admin,
+        minAmountUSD: 50000,
+        description: 'Mandatory executive authorization for major capital outlays.',
+        slaHours: 48,
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+    updatedByUserName: 'Sarah Connor (Admin)',
+  },
+  {
+    id: 'wf-so-01',
+    name: 'Commercial Sales Order Credit & Dispatch Workflow',
+    targetType: 'SalesOrder',
+    description: 'Sequential credit risk check and warehouse picking authorization.',
+    isActive: true,
+    minOrderAmountUSD: 0,
+    steps: [
+      {
+        stepNumber: 1,
+        stepName: 'Sales Representative Validation',
+        requiredRole: Role.SalesRepresentative,
+        minAmountUSD: 0,
+        description: 'Confirm customer PO and pricing tier.',
+        slaHours: 12,
+      },
+      {
+        stepNumber: 2,
+        stepName: 'Warehouse Stock Allocation Review',
+        requiredRole: Role.WarehouseManager,
+        minAmountUSD: 10000,
+        description: 'Ensure inventory is reserved and staging bays ready.',
+        slaHours: 24,
+      },
+      {
+        stepNumber: 3,
+        stepName: 'Executive Credit Limit Exception Sign-off',
+        requiredRole: Role.Admin,
+        minAmountUSD: 50000,
+        description: 'Approval required for orders exceeding standard credit thresholds.',
+        slaHours: 48,
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+    updatedByUserName: 'Sarah Connor (Admin)',
+  },
+];
+
+export function evaluateWorkflowForDocument(
+  rules: WorkflowRule[],
+  targetType: WorkflowTargetType,
+  totalAmountUSD: number
+): DocumentWorkflowState {
+  const activeRules = rules.filter(
+    r => r.isActive && r.targetType === targetType && totalAmountUSD >= r.minOrderAmountUSD
+  );
+
+  // Pick the rule with the highest minOrderAmountUSD or the first matching one
+  const rule = activeRules.sort((a, b) => b.minOrderAmountUSD - a.minOrderAmountUSD)[0] || INITIAL_WORKFLOW_RULES.find(r => r.targetType === targetType);
+
+  if (!rule) {
+    // Fallback default 1-step
+    return {
+      ruleId: 'wf-default',
+      ruleName: 'Default Single-Step Admin Approval',
+      currentStepIndex: 0,
+      totalSteps: 1,
+      approvalChain: [
+        {
+          stepNumber: 1,
+          stepName: 'Executive Approval',
+          requiredRole: Role.Admin,
+          minAmountUSD: 0,
+          slaHours: 24,
+          stepStartedAt: new Date().toISOString(),
+          status: 'PENDING',
+        },
+      ],
+      isFullyApproved: false,
+      isRejected: false,
+    };
+  }
+
+  // Filter steps that apply to this amount
+  const applicableSteps = rule.steps.filter(s => totalAmountUSD >= s.minAmountUSD);
+  const effectiveSteps = applicableSteps.length > 0 ? applicableSteps : rule.steps;
+
+  return {
+    ruleId: rule.id,
+    ruleName: rule.name,
+    currentStepIndex: 0,
+    totalSteps: effectiveSteps.length,
+    approvalChain: effectiveSteps.map((s, idx) => ({
+      stepNumber: idx + 1,
+      stepName: s.stepName,
+      requiredRole: s.requiredRole,
+      minAmountUSD: s.minAmountUSD,
+      slaHours: s.slaHours || 24,
+      stepStartedAt: idx === 0 ? new Date().toISOString() : undefined,
+      status: 'PENDING',
+    })),
+    isFullyApproved: false,
+    isRejected: false,
+  };
+}
+
 // System Settings
 export const INITIAL_SETTINGS: SystemSettings = {
   companyName: 'Apex Global Supply Chain Technologies Inc.',
@@ -731,6 +945,48 @@ class EnterpriseDbContext {
   public returns: ERPReturn[] = [...INITIAL_RETURNS];
   public notifications: ERPNotification[] = [...INITIAL_NOTIFICATIONS];
   public settings: SystemSettings = { ...INITIAL_SETTINGS };
+  public workflows: WorkflowRule[] = [...INITIAL_WORKFLOW_RULES];
+
+  constructor() {
+    // Attach initial evaluated workflow chains to seed PRs & POs
+    this.purchaseOrders.forEach(po => {
+      if (!po.workflowState) {
+        po.workflowState = evaluateWorkflowForDocument(this.workflows, 'PurchaseOrder', po.totalAmount);
+        if (po.status === PurchaseOrderStatus.Approved || po.status === PurchaseOrderStatus.Completed) {
+          po.workflowState.isFullyApproved = true;
+          po.workflowState.currentStepIndex = po.workflowState.totalSteps;
+          po.workflowState.approvalChain.forEach(st => {
+            st.status = 'APPROVED';
+            st.approvedByUserName = po.approvedByUserName || 'Sarah Connor (Admin)';
+            st.approvedByUserRole = Role.Admin;
+            st.approvedAt = po.updatedAt;
+            st.comments = 'Pre-approved baseline order.';
+          });
+        } else if (po.workflowState.approvalChain[0]) {
+          po.workflowState.approvalChain[0].stepStartedAt = po.createdAt;
+        }
+      }
+    });
+
+    this.purchaseRequisitions.forEach(pr => {
+      if (!pr.workflowState) {
+        pr.workflowState = evaluateWorkflowForDocument(this.workflows, 'PurchaseRequisition', pr.totalEstimatedAmount);
+        if (pr.status === PurchaseRequisitionStatus.Approved) {
+          pr.workflowState.isFullyApproved = true;
+          pr.workflowState.currentStepIndex = pr.workflowState.totalSteps;
+          pr.workflowState.approvalChain.forEach(st => {
+            st.status = 'APPROVED';
+            st.approvedByUserName = pr.approvedByUserName || 'Sarah Connor (Admin)';
+            st.approvedByUserRole = Role.Admin;
+            st.approvedAt = pr.updatedAt;
+            st.comments = 'Pre-approved requisition.';
+          });
+        } else if (pr.workflowState.approvalChain[0]) {
+          pr.workflowState.approvalChain[0].stepStartedAt = pr.createdAt;
+        }
+      }
+    });
+  }
 
   /**
    * Recalculate product total quantity on hand across all warehouse bins

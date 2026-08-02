@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { db } from '../infrastructure/db.js';
+import { db, evaluateWorkflowForDocument } from '../infrastructure/db.js';
 import { JwtAuthProvider } from '../infrastructure/jwt.js';
 import {
   GetDashboardMetricsQueryHandler,
@@ -279,6 +279,8 @@ apiRouter.post(
       };
     });
 
+    const workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseOrder', totalAmount);
+
     const newPO = {
       id: `po-${Date.now()}`,
       poNumber: `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -295,6 +297,7 @@ apiRouter.post(
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       notes,
+      workflowState,
     };
 
     db.purchaseOrders.unshift(newPO);
@@ -308,10 +311,143 @@ apiRouter.post(
       userRole: req.user!.role,
       ipAddress: req.ip || '127.0.0.1',
       riskLevel: RiskLevel.Medium,
-      details: `Created PO ${newPO.poNumber} for $${totalAmount.toFixed(2)} with ${supplier.name}.`,
+      details: `Created PO ${newPO.poNumber} for $${totalAmount.toFixed(2)} with ${supplier.name}. Triggered Workflow: ${workflowState.ruleName}.`,
     });
 
     return res.status(201).json({ success: true, data: newPO });
+  }
+);
+
+// POST /api/v1/purchase-orders/:id/approve-step
+apiRouter.post(
+  '/purchase-orders/:id/approve-step',
+  authenticateJwt,
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { comments } = req.body;
+
+    const po = db.purchaseOrders.find(p => p.id === id);
+    if (!po) return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+
+    if (!po.workflowState) {
+      po.workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseOrder', po.totalAmount);
+    }
+
+    const wf = po.workflowState;
+    if (wf.isFullyApproved) {
+      return res.status(400).json({ success: false, message: 'Purchase order is already fully approved.' });
+    }
+    if (wf.isRejected) {
+      return res.status(400).json({ success: false, message: 'Purchase order was rejected and cannot be approved.' });
+    }
+
+    const currentStep = wf.approvalChain[wf.currentStepIndex];
+    if (!currentStep) {
+      return res.status(400).json({ success: false, message: 'No active approval step found.' });
+    }
+
+    if (req.user!.role !== currentStep.requiredRole && req.user!.role !== Role.Admin) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: Current step '${currentStep.stepName}' requires role '${currentStep.requiredRole}'. Your role is '${req.user!.role}'.`,
+      });
+    }
+
+    currentStep.status = 'APPROVED';
+    currentStep.approvedByUserId = req.user!.id;
+    currentStep.approvedByUserName = req.user!.name;
+    currentStep.approvedByUserRole = req.user!.role;
+    currentStep.approvedAt = new Date().toISOString();
+    currentStep.comments = comments || `Approved by ${req.user!.name} (${req.user!.role})`;
+
+    wf.currentStepIndex += 1;
+
+    if (wf.currentStepIndex >= wf.totalSteps) {
+      wf.isFullyApproved = true;
+      po.status = PurchaseOrderStatus.Approved;
+      po.approvedByUserName = req.user!.name;
+    } else {
+      po.status = PurchaseOrderStatus.PendingApproval;
+      if (wf.approvalChain[wf.currentStepIndex]) {
+        wf.approvalChain[wf.currentStepIndex].stepStartedAt = new Date().toISOString();
+      }
+    }
+
+    po.updatedAt = new Date().toISOString();
+
+    db.logAudit({
+      action: 'WORKFLOW_STEP_APPROVED',
+      entityType: 'PurchaseOrder',
+      entityId: po.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.Medium,
+      details: `Approved Step ${currentStep.stepNumber} (${currentStep.stepName}) for PO ${po.poNumber}.`,
+    });
+
+    return res.json({
+      success: true,
+      data: po,
+      message: wf.isFullyApproved
+        ? `PO ${po.poNumber} fully approved by all workflow tiers!`
+        : `Step ${currentStep.stepNumber} approved. Next step: ${wf.approvalChain[wf.currentStepIndex]?.stepName}`,
+    });
+  }
+);
+
+// POST /api/v1/purchase-orders/:id/reject-step
+apiRouter.post(
+  '/purchase-orders/:id/reject-step',
+  authenticateJwt,
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const po = db.purchaseOrders.find(p => p.id === id);
+    if (!po) return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+
+    if (!po.workflowState) {
+      po.workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseOrder', po.totalAmount);
+    }
+
+    const wf = po.workflowState;
+    const currentStep = wf.approvalChain[wf.currentStepIndex];
+
+    if (currentStep && req.user!.role !== currentStep.requiredRole && req.user!.role !== Role.Admin) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: Current step requires role '${currentStep.requiredRole}'. Your role is '${req.user!.role}'.`,
+      });
+    }
+
+    if (currentStep) {
+      currentStep.status = 'REJECTED';
+      currentStep.approvedByUserId = req.user!.id;
+      currentStep.approvedByUserName = req.user!.name;
+      currentStep.approvedByUserRole = req.user!.role;
+      currentStep.approvedAt = new Date().toISOString();
+      currentStep.comments = reason || 'Rejected during workflow review.';
+    }
+
+    wf.isRejected = true;
+    po.status = PurchaseOrderStatus.Cancelled;
+    po.updatedAt = new Date().toISOString();
+
+    db.logAudit({
+      action: 'WORKFLOW_STEP_REJECTED',
+      entityType: 'PurchaseOrder',
+      entityId: po.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.High,
+      details: `Rejected PO ${po.poNumber}. Reason: ${reason || 'N/A'}.`,
+    });
+
+    return res.json({ success: true, data: po, message: `PO ${po.poNumber} rejected.` });
   }
 );
 
@@ -523,6 +659,8 @@ apiRouter.post('/purchase-requisitions', authenticateJwt, (req: AuthenticatedReq
     };
   });
 
+  const workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseRequisition', totalEst);
+
   const newPR = {
     id: `pr-${Date.now()}`,
     prNumber: `PR-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -535,11 +673,145 @@ apiRouter.post('/purchase-requisitions', authenticateJwt, (req: AuthenticatedReq
     notes,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    workflowState,
   };
 
   db.purchaseRequisitions.unshift(newPR);
   return res.status(201).json({ success: true, data: newPR });
 });
+
+// POST /api/v1/purchase-requisitions/:id/approve-step
+apiRouter.post(
+  '/purchase-requisitions/:id/approve-step',
+  authenticateJwt,
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { comments } = req.body;
+
+    const pr = db.purchaseRequisitions.find(p => p.id === id);
+    if (!pr) return res.status(404).json({ success: false, message: 'Requisition not found.' });
+
+    if (!pr.workflowState) {
+      pr.workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseRequisition', pr.totalEstimatedAmount);
+    }
+
+    const wf = pr.workflowState;
+    if (wf.isFullyApproved) {
+      return res.status(400).json({ success: false, message: 'Requisition is already fully approved.' });
+    }
+    if (wf.isRejected) {
+      return res.status(400).json({ success: false, message: 'Requisition was rejected and cannot be approved.' });
+    }
+
+    const currentStep = wf.approvalChain[wf.currentStepIndex];
+    if (!currentStep) {
+      return res.status(400).json({ success: false, message: 'No active approval step found.' });
+    }
+
+    if (req.user!.role !== currentStep.requiredRole && req.user!.role !== Role.Admin) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: Current step '${currentStep.stepName}' requires role '${currentStep.requiredRole}'. Your role is '${req.user!.role}'.`,
+      });
+    }
+
+    currentStep.status = 'APPROVED';
+    currentStep.approvedByUserId = req.user!.id;
+    currentStep.approvedByUserName = req.user!.name;
+    currentStep.approvedByUserRole = req.user!.role;
+    currentStep.approvedAt = new Date().toISOString();
+    currentStep.comments = comments || `Approved by ${req.user!.name} (${req.user!.role})`;
+
+    wf.currentStepIndex += 1;
+
+    if (wf.currentStepIndex >= wf.totalSteps) {
+      wf.isFullyApproved = true;
+      pr.status = PurchaseRequisitionStatus.Approved;
+      pr.approvedByUserName = req.user!.name;
+    } else {
+      pr.status = PurchaseRequisitionStatus.PendingApproval;
+      if (wf.approvalChain[wf.currentStepIndex]) {
+        wf.approvalChain[wf.currentStepIndex].stepStartedAt = new Date().toISOString();
+      }
+    }
+
+    pr.updatedAt = new Date().toISOString();
+
+    db.logAudit({
+      action: 'WORKFLOW_STEP_APPROVED',
+      entityType: 'PurchaseRequisition',
+      entityId: pr.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.Medium,
+      details: `Approved Step ${currentStep.stepNumber} (${currentStep.stepName}) for PR ${pr.prNumber}.`,
+    });
+
+    return res.json({
+      success: true,
+      data: pr,
+      message: wf.isFullyApproved
+        ? `PR ${pr.prNumber} fully approved by all workflow tiers!`
+        : `Step ${currentStep.stepNumber} approved. Next step: ${wf.approvalChain[wf.currentStepIndex]?.stepName}`,
+    });
+  }
+);
+
+// POST /api/v1/purchase-requisitions/:id/reject-step
+apiRouter.post(
+  '/purchase-requisitions/:id/reject-step',
+  authenticateJwt,
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const pr = db.purchaseRequisitions.find(p => p.id === id);
+    if (!pr) return res.status(404).json({ success: false, message: 'Requisition not found.' });
+
+    if (!pr.workflowState) {
+      pr.workflowState = evaluateWorkflowForDocument(db.workflows, 'PurchaseRequisition', pr.totalEstimatedAmount);
+    }
+
+    const wf = pr.workflowState;
+    const currentStep = wf.approvalChain[wf.currentStepIndex];
+
+    if (currentStep && req.user!.role !== currentStep.requiredRole && req.user!.role !== Role.Admin) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: Current step requires role '${currentStep.requiredRole}'. Your role is '${req.user!.role}'.`,
+      });
+    }
+
+    if (currentStep) {
+      currentStep.status = 'REJECTED';
+      currentStep.approvedByUserId = req.user!.id;
+      currentStep.approvedByUserName = req.user!.name;
+      currentStep.approvedByUserRole = req.user!.role;
+      currentStep.approvedAt = new Date().toISOString();
+      currentStep.comments = reason || 'Rejected during workflow review.';
+    }
+
+    wf.isRejected = true;
+    pr.status = PurchaseRequisitionStatus.Rejected;
+    pr.updatedAt = new Date().toISOString();
+
+    db.logAudit({
+      action: 'WORKFLOW_STEP_REJECTED',
+      entityType: 'PurchaseRequisition',
+      entityId: pr.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.High,
+      details: `Rejected PR ${pr.prNumber}. Reason: ${reason || 'N/A'}.`,
+    });
+
+    return res.json({ success: true, data: pr, message: `PR ${pr.prNumber} rejected.` });
+  }
+);
 
 apiRouter.put('/purchase-requisitions/:id/status', authenticateJwt, requireRole([Role.Admin, Role.ProcurementLead]), (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
@@ -554,6 +826,138 @@ apiRouter.put('/purchase-requisitions/:id/status', authenticateJwt, requireRole(
   }
   return res.json({ success: true, data: pr });
 });
+
+// --- WORKFLOW RULES MANAGEMENT API ---
+
+// GET /api/v1/workflows
+apiRouter.get('/workflows', authenticateJwt, (req: AuthenticatedRequest, res: Response) => {
+  return res.json({ success: true, data: db.workflows });
+});
+
+// POST /api/v1/workflows (Admin, ProcurementLead)
+apiRouter.post(
+  '/workflows',
+  authenticateJwt,
+  requireRole([Role.Admin, Role.ProcurementLead]),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { name, targetType, description, minOrderAmountUSD, steps, isActive } = req.body;
+
+    if (!name || !targetType || !steps || !steps.length) {
+      return res.status(400).json({ success: false, errors: ['Name, Target Type, and at least 1 Step are required.'] });
+    }
+
+    const newRule = {
+      id: `wf-${Date.now()}`,
+      name,
+      targetType,
+      description: description || 'Custom configured approval workflow.',
+      isActive: isActive !== false,
+      minOrderAmountUSD: Number(minOrderAmountUSD) || 0,
+      steps: steps.map((s: any, idx: number) => ({
+        stepNumber: idx + 1,
+        stepName: s.stepName || `Approval Tier ${idx + 1}`,
+        requiredRole: s.requiredRole || Role.Admin,
+        minAmountUSD: Number(s.minAmountUSD) || 0,
+        description: s.description || '',
+        slaHours: Number(s.slaHours) || 24,
+      })),
+      updatedAt: new Date().toISOString(),
+      updatedByUserName: req.user!.name,
+    };
+
+    db.workflows.unshift(newRule);
+
+    db.logAudit({
+      action: 'WORKFLOW_RULE_CREATED',
+      entityType: 'WorkflowRule',
+      entityId: newRule.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.High,
+      details: `Created workflow '${newRule.name}' for ${newRule.targetType} with ${newRule.steps.length} steps.`,
+    });
+
+    return res.status(201).json({ success: true, data: newRule });
+  }
+);
+
+// PUT /api/v1/workflows/:id
+apiRouter.put(
+  '/workflows/:id',
+  authenticateJwt,
+  requireRole([Role.Admin, Role.ProcurementLead]),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { name, targetType, description, minOrderAmountUSD, steps, isActive } = req.body;
+
+    const rule = db.workflows.find(w => w.id === id);
+    if (!rule) return res.status(404).json({ success: false, message: 'Workflow rule not found.' });
+
+    if (name) rule.name = name;
+    if (targetType) rule.targetType = targetType;
+    if (description !== undefined) rule.description = description;
+    if (minOrderAmountUSD !== undefined) rule.minOrderAmountUSD = Number(minOrderAmountUSD);
+    if (isActive !== undefined) rule.isActive = Boolean(isActive);
+
+    if (steps && steps.length) {
+      rule.steps = steps.map((s: any, idx: number) => ({
+        stepNumber: idx + 1,
+        stepName: s.stepName || `Approval Tier ${idx + 1}`,
+        requiredRole: s.requiredRole || Role.Admin,
+        minAmountUSD: Number(s.minAmountUSD) || 0,
+        description: s.description || '',
+        slaHours: Number(s.slaHours) || 24,
+      }));
+    }
+
+    rule.updatedAt = new Date().toISOString();
+    rule.updatedByUserName = req.user!.name;
+
+    db.logAudit({
+      action: 'WORKFLOW_RULE_UPDATED',
+      entityType: 'WorkflowRule',
+      entityId: rule.id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.High,
+      details: `Updated workflow '${rule.name}'. Active: ${rule.isActive}. Steps: ${rule.steps.length}.`,
+    });
+
+    return res.json({ success: true, data: rule });
+  }
+);
+
+// DELETE /api/v1/workflows/:id
+apiRouter.delete(
+  '/workflows/:id',
+  authenticateJwt,
+  requireRole([Role.Admin]),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const idx = db.workflows.findIndex(w => w.id === id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Workflow rule not found.' });
+
+    const [deleted] = db.workflows.splice(idx, 1);
+
+    db.logAudit({
+      action: 'WORKFLOW_RULE_DELETED',
+      entityType: 'WorkflowRule',
+      entityId: id,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      ipAddress: req.ip || '127.0.0.1',
+      riskLevel: RiskLevel.High,
+      details: `Deleted workflow '${deleted.name}' (${deleted.targetType}).`,
+    });
+
+    return res.json({ success: true, message: `Workflow rule deleted.` });
+  }
+);
 
 // Sales Orders
 apiRouter.get('/sales-orders', authenticateJwt, (req: AuthenticatedRequest, res: Response) => {
