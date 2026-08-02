@@ -1,125 +1,30 @@
 # Apex One ERP
 
-> Enterprise-grade Multi-Tenant ERP Platform built with .NET 8, ASP.NET Core, React 19, Clean Architecture, and CQRS.
+> Enterprise-grade multi-tenant ERP platform built with **.NET 8**, **ASP.NET Core**, **React 19**, **Clean Architecture**, and **CQRS**.
 
-Apex One ERP is a modern enterprise resource planning (ERP) platform designed for organizations that need a scalable solution for inventory, procurement, warehouse management, sales, invoicing, and financial operations.
+Apex One ERP is a modern Enterprise Resource Planning (ERP) platform designed to simplify inventory, procurement, warehouse operations, sales, invoicing, and financial management for small, medium, and enterprise businesses.
 
-The platform is designed for both **Cloud SaaS** and **On-Premise** deployments with enterprise-grade security, multi-tenant architecture, role-based access control, and white-label customization.
+The platform is architected for both **Cloud SaaS** and **On-Premise** deployments with scalability, security, and long-term maintainability in mind.
 
----
-
-## 🚀 Features
-
-### Inventory Management
-
-- Product Catalog
-- Categories & Brands
-- Units of Measure
-- Barcode & QR Support
-- Batch & Lot Tracking
-- Expiry Tracking
-- Inventory Valuation
-- FIFO Costing
-- Weighted Average Costing
-- Safety Stock Alerts
-- Stock Adjustments
-- Stock Transfers
-- Multi-Warehouse Support
+> **Current Status:** Active Development (Version 1.0)
 
 ---
 
-### Procurement
+## Project Vision
 
-- Purchase Requisition (PR)
-- Multi-Level Approval Workflow
-- Purchase Orders (PO)
-- Goods Receipt Notes (GRN)
-- Supplier Management
-- Purchase Analytics
+Build a production-ready ERP platform that is:
 
----
-
-### Warehouse Operations
-
-- Multi-Warehouse
-- Warehouse Zones
-- Bin Locations
-- Inventory Reservation
-- Picking & Packing
-- Dispatch Management
+- Enterprise-grade
+- Multi-tenant
+- Secure
+- Modular
+- Scalable
+- Easy to customize
+- Suitable for SaaS and on-premise deployments
 
 ---
 
-### Sales
-
-- Customer Management
-- Sales Quotations
-- Sales Orders
-- Invoice Generation
-- Payment Tracking
-- Customer Ledger
-
----
-
-### Financial Management
-
-- Accounts Receivable
-- Accounts Payable
-- Tax Calculation
-- Supplier Ledger
-- Customer Ledger
-- Credit Notes
-- Debit Notes
-- Financial Reports
-
----
-
-### Administration
-
-- Multi-Tenant SaaS
-- Role-Based Access Control (RBAC)
-- User Management
-- Audit Logs
-- White-Label Branding
-- Subscription Management
-- Super Admin Portal
-
----
-
-## 🏗️ Architecture
-
-The application follows **Clean Architecture** with **CQRS** to ensure maintainability, scalability, and separation of concerns.
-
-```
-Presentation
-        │
-        ▼
-Application (CQRS)
-        │
-        ▼
-Domain
-        │
-        ▼
-Infrastructure
-        │
-        ▼
-PostgreSQL / SQL Server
-```
-
-### Architecture Principles
-
-- Clean Architecture
-- CQRS (MediatR)
-- SOLID Principles
-- Repository Pattern
-- Dependency Injection
-- Domain-Driven Design Concepts
-- FluentValidation
-- Global Exception Handling
-
----
-
-# 🛠 Technology Stack
+# Technology Stack
 
 ## Backend
 
@@ -127,7 +32,7 @@ PostgreSQL / SQL Server
 - ASP.NET Core Web API
 - C#
 - Entity Framework Core
-- MediatR
+- MediatR (CQRS)
 - FluentValidation
 - Serilog
 - JWT Authentication
@@ -138,153 +43,91 @@ PostgreSQL / SQL Server
 - TypeScript
 - Tailwind CSS
 - React Query
-- React Hook Form
 - React Router
+- React Hook Form
 - Recharts
 
 ## Database
 
 - PostgreSQL
-- SQL Server
+- SQL Server (supported)
 
 ## Infrastructure
 
 - Redis
 - MinIO
-- AWS S3
+- AWS S3 (planned)
 - Docker
 - Docker Compose
 
 ---
 
-# 🔐 Security
+# Planned Modules (Version 1.0)
 
-- JWT Authentication
-- Refresh Tokens
-- Role-Based Authorization
-- Tenant Isolation
-- Audit Logging
-- Secure Password Hashing
-- OWASP Best Practices
-- Global Exception Handling
-
----
-
-# 🌐 Multi-Tenant SaaS
-
-Apex One ERP is designed for commercial SaaS deployment.
-
-Features include:
-
-- Multi-Company
-- Multi-Branch
-- Multi-Warehouse
-- Tenant Isolation
-- White-Label Branding
-- Subscription Plans
-- Feature Flags
-- Custom Domains
-- Enterprise Licensing
-
----
-
-# 📦 Modules
-
+- Authentication
+- Multi-Tenant Management
+- User & Role Management
 - Dashboard
-- Products
-- Categories
-- Brands
+- Product Catalog
+- Categories & Brands
 - Warehouses
 - Suppliers
 - Customers
 - Purchase Requisition
 - Purchase Orders
 - Goods Receipt
-- Inventory
+- Inventory Management
 - Stock Transfers
 - Sales Orders
 - Invoices
 - Payments
 - Reports
-- Users
-- Roles
-- Audit Logs
-- Settings
-- Super Admin
-
----
-
-# 📈 Roadmap
-
-### Version 1.0
-
-- Multi-Tenant Architecture
-- Inventory Management
-- Procurement
-- Warehouse Management
-- Sales
-- Financial Operations
+- Super Admin Portal
 - White-Label Branding
 - Subscription Management
 
-### Version 1.1
+---
 
-- Mobile Barcode Scanner
-- Advanced Reporting
-- Dashboard Customization
+# Architecture
 
-### Version 2.0
+The project follows **Clean Architecture** with **CQRS** to keep business logic independent from infrastructure.
 
-- AI Demand Forecasting
-- OCR Invoice Processing
-- Predictive Analytics
-- AI Assistant
+```
+Presentation
+    │
+Application (CQRS)
+    │
+Domain
+    │
+Infrastructure
+    │
+PostgreSQL / SQL Server
+```
+
+Architecture principles:
+
+- Clean Architecture
+- CQRS
+- SOLID Principles
+- Dependency Injection
+- Repository Pattern
+- Domain-Driven Design Concepts
+- Global Exception Handling
 
 ---
 
-# 🚀 Getting Started
+# Goals
 
-## Prerequisites
-
-- .NET 8 SDK
-- Node.js 22+
-- PostgreSQL
-- Redis
-- Docker (Optional)
-
-## Clone Repository
-
-```bash
-git clone https://github.com/arana07i/Apex-One-ERP.git
-
-cd apex-one-erp
-```
-
-## Backend
-
-```bash
-cd backend
-
-dotnet restore
-
-dotnet ef database update
-
-dotnet run
-```
-
-## Frontend
-
-```bash
-cd frontend
-
-npm install
-
-npm run dev
-```
+- Build a production-ready ERP platform
+- Support multi-company operations
+- Enable SaaS deployment
+- Support on-premise installations
+- Maintain a modular and scalable architecture
+- Follow enterprise development best practices
 
 ---
 
-# 📁 Repository Structure
+# Repository Structure
 
 ```
 ApexOneERP/
@@ -302,38 +145,71 @@ tests/
 
 ---
 
-# 📊 Project Status
+# Development Status
 
-**Version:** v1.0
-
-Current Focus:
-
-- Foundation
-- Multi-Tenant Architecture
-- Core ERP Modules
-
-Future releases will introduce AI capabilities, advanced analytics, and additional enterprise modules.
+| Module | Status |
+|---------|--------|
+| Project Foundation | 🚧 In Progress |
+| Authentication | 🚧 In Progress |
+| Multi-Tenant Architecture | 🚧 In Progress |
+| Inventory Module | ⏳ Planned |
+| Procurement Module | ⏳ Planned |
+| Sales Module | ⏳ Planned |
+| Reports | ⏳ Planned |
+| White-Label | ⏳ Planned |
 
 ---
 
-# 🤝 Contributing
+# Roadmap
 
-Contributions, feature requests, and bug reports are welcome.
+## Version 1.0
+
+- Core ERP Foundation
+- Inventory Management
+- Procurement
+- Warehouse Management
+- Sales
+- Financial Operations
+- Multi-Tenant Architecture
+- White-Label Support
+
+## Future Releases
+
+- Mobile Barcode Application
+- AI Demand Forecasting
+- OCR Document Processing
+- Advanced Analytics
+- Public API & Webhooks
+
+---
+
+# Getting Started
+
+> Documentation and installation instructions will be added as the project progresses.
+
+---
+
+# Contributing
+
+Contributions, suggestions, and feedback are welcome.
 
 Please open an issue before submitting a pull request.
 
 ---
 
-# 📄 License
+# License
 
-This repository is licensed under the MIT License.
-
-For commercial licensing, enterprise deployment, or white-label solutions, please contact the project owner.
+License information will be added before the first stable release.
 
 ---
 
-# ⭐ Support
+## Author
 
-If you find this project useful, consider giving it a ⭐ on GitHub.
+**Abhishek Rana**
 
-Feedback and contributions are always appreciated.
+- LinkedIn: https://linkedin.com/in/arana07i
+- GitHub: https://github.com/arana07i
+
+---
+
+⭐ If you find this project interesting, consider starring the repository.
