@@ -255,7 +255,7 @@ Features include:
 ## Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/apex-one-erp.git
+git clone https://github.com/arana07i/Apex-One-ERP.git
 
 cd apex-one-erp
 ```
