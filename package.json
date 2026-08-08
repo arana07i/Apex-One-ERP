@@ -1,5 +1,6 @@
 {
-  "name": "react-example",
+  "name": "apex-one-erp",
+  "description": "Apex One Enterprise Resource Planning (ERP) Platform backed by Cloud SQL PostgreSQL, Drizzle ORM, Firebase Auth, Express, and React.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
