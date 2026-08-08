@@ -1283,6 +1283,82 @@ apiRouter.get(
   }
 );
 
+// POST /api/v1/audit-logs/error (UI Error Tracking Service)
+apiRouter.post('/audit-logs/error', (req: Request, res: Response) => {
+  const { action, entityType, entityId, riskLevel, details, metadata } = req.body;
+
+  let userId = 'sys-client';
+  let userName = 'UI Error Tracker';
+  let userRole = Role.Auditor;
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = JwtAuthProvider.verifyToken(token);
+    if (payload) {
+      const user = db.users.find(u => u.id === payload.userId);
+      if (user) {
+        userId = user.id;
+        userName = user.name;
+        userRole = user.role;
+      }
+    }
+  }
+
+  const newLog = db.logAudit({
+    action: action || 'UI_RENDER_ERROR',
+    entityType: entityType || 'UI_Component',
+    entityId: entityId || 'UI_View',
+    userId,
+    userName,
+    userRole,
+    ipAddress: req.ip || '127.0.0.1',
+    riskLevel: (riskLevel as RiskLevel) || RiskLevel.High,
+    details: details || 'An unhandled client UI rendering exception occurred.',
+    newValueJson: metadata ? JSON.stringify(metadata) : undefined,
+  });
+
+  return res.status(201).json({ success: true, data: newLog, message: 'UI error audit log recorded successfully.' });
+});
+
+// POST /api/v1/audit-logs (General Audit Endpoint)
+apiRouter.post('/audit-logs', (req: Request, res: Response) => {
+  const { action, entityType, entityId, riskLevel, details, metadata } = req.body;
+
+  let userId = 'sys-audit';
+  let userName = 'System Client';
+  let userRole = Role.Auditor;
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = JwtAuthProvider.verifyToken(token);
+    if (payload) {
+      const user = db.users.find(u => u.id === payload.userId);
+      if (user) {
+        userId = user.id;
+        userName = user.name;
+        userRole = user.role;
+      }
+    }
+  }
+
+  const newLog = db.logAudit({
+    action: action || 'AUDIT_EVENT_LOGGED',
+    entityType: entityType || 'System',
+    entityId: entityId || 'global',
+    userId,
+    userName,
+    userRole,
+    ipAddress: req.ip || '127.0.0.1',
+    riskLevel: (riskLevel as RiskLevel) || RiskLevel.Low,
+    details: details || 'Audit log event recorded.',
+    newValueJson: metadata ? JSON.stringify(metadata) : undefined,
+  });
+
+  return res.status(201).json({ success: true, data: newLog });
+});
+
 // --- 10. SWAGGER / OPENAPI SPEC SPECIFICATION ---
 
 apiRouter.get('/docs/openapi.json', (req: Request, res: Response) => {

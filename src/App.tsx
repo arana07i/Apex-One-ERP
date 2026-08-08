@@ -23,6 +23,7 @@ import { ReportsView } from './views/ReportsView';
 import { UserManagementView } from './views/UserManagementView';
 import { SettingsView } from './views/SettingsView';
 import { MasterPrdView } from './views/MasterPrdView';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { CommandPalette } from './components/common/CommandPalette';
 import { AppModals } from './components/modals/AppModals';
 import {
@@ -394,147 +395,149 @@ export default function App() {
 
         {/* Main View Area */}
         <main className="flex-1 p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
-          {currentView === 'dashboard' && (
-            <DashboardView
-              metrics={metrics}
-              onSelectProduct={setSelectedProduct}
-              onOpenStockAdjustment={handleOpenStockAdjustmentModal}
-              onOpenCreatePO={() => setIsCreatePOOpen(true)}
-              onNavigate={setCurrentView}
-            />
-          )}
+          <ErrorBoundary key={currentView} viewName={currentView} onReset={() => fetchAppData(jwtToken)}>
+            {currentView === 'dashboard' && (
+              <DashboardView
+                metrics={metrics}
+                onSelectProduct={setSelectedProduct}
+                onOpenStockAdjustment={handleOpenStockAdjustmentModal}
+                onOpenCreatePO={() => setIsCreatePOOpen(true)}
+                onNavigate={setCurrentView}
+              />
+            )}
 
-          {currentView === 'inventory' && (
-            <InventoryView
-              products={products}
-              warehouses={warehouses}
-              onSelectProduct={setSelectedProduct}
-              onOpenCreateProduct={() => setIsCreateProductOpen(true)}
-              onOpenStockAdjustment={handleOpenStockAdjustmentModal}
-            />
-          )}
+            {currentView === 'inventory' && (
+              <InventoryView
+                products={products}
+                warehouses={warehouses}
+                onSelectProduct={setSelectedProduct}
+                onOpenCreateProduct={() => setIsCreateProductOpen(true)}
+                onOpenStockAdjustment={handleOpenStockAdjustmentModal}
+              />
+            )}
 
-          {currentView === 'warehouses' && (
-            <WarehouseView
-              warehouses={warehouses}
-              onOpenCreateWarehouse={() => setIsCreateWarehouseOpen(true)}
-            />
-          )}
+            {currentView === 'warehouses' && (
+              <WarehouseView
+                warehouses={warehouses}
+                onOpenCreateWarehouse={() => setIsCreateWarehouseOpen(true)}
+              />
+            )}
 
-          {currentView === 'procurement' && (
-            <ProcurementView
-              purchaseOrders={purchaseOrders}
-              purchaseRequisitions={purchaseRequisitions}
-              products={products}
-              suppliers={suppliers}
-              warehouses={warehouses}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-              onOpenCreatePoModal={() => setIsCreatePOOpen(true)}
-            />
-          )}
+            {currentView === 'procurement' && (
+              <ProcurementView
+                purchaseOrders={purchaseOrders}
+                purchaseRequisitions={purchaseRequisitions}
+                products={products}
+                suppliers={suppliers}
+                warehouses={warehouses}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+                onOpenCreatePoModal={() => setIsCreatePOOpen(true)}
+              />
+            )}
 
-          {currentView === 'purchase-orders' && (
-            <PurchaseOrdersView
-              purchaseOrders={purchaseOrders}
-              onOpenCreatePO={() => setIsCreatePOOpen(true)}
-              onUpdatePOStatus={handleUpdatePOStatus}
-              userRole={currentUser.role}
-            />
-          )}
+            {currentView === 'purchase-orders' && (
+              <PurchaseOrdersView
+                purchaseOrders={purchaseOrders}
+                onOpenCreatePO={() => setIsCreatePOOpen(true)}
+                onUpdatePOStatus={handleUpdatePOStatus}
+                userRole={currentUser.role}
+              />
+            )}
 
-          {currentView === 'sales-orders' && (
-            <SalesOrdersView
-              salesOrders={salesOrders}
-              customers={customers}
-              products={products}
-              warehouses={warehouses}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-            />
-          )}
+            {currentView === 'sales-orders' && (
+              <SalesOrdersView
+                salesOrders={salesOrders}
+                customers={customers}
+                products={products}
+                warehouses={warehouses}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+              />
+            )}
 
-          {currentView === 'financials' && (
-            <FinancialsView
-              invoices={invoices}
-              payments={payments}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-            />
-          )}
+            {currentView === 'financials' && (
+              <FinancialsView
+                invoices={invoices}
+                payments={payments}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+              />
+            )}
 
-          {currentView === 'master-data' && (
-            <MasterDataView
-              company={company}
-              branches={branches}
-              categories={categories}
-              brands={brands}
-              units={units}
-              suppliers={suppliers}
-              customers={customers}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-            />
-          )}
+            {currentView === 'master-data' && (
+              <MasterDataView
+                company={company}
+                branches={branches}
+                categories={categories}
+                brands={brands}
+                units={units}
+                suppliers={suppliers}
+                customers={customers}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+              />
+            )}
 
-          {currentView === 'stock-movements' && (
-            <StockMovementsView stockMovements={stockMovements} />
-          )}
+            {currentView === 'stock-movements' && (
+              <StockMovementsView stockMovements={stockMovements} />
+            )}
 
-          {currentView === 'returns' && (
-            <ReturnsView
-              returns={returns}
-              products={products}
-              warehouses={warehouses}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-            />
-          )}
+            {currentView === 'returns' && (
+              <ReturnsView
+                returns={returns}
+                products={products}
+                warehouses={warehouses}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+              />
+            )}
 
-          {currentView === 'reports' && (
-            <ReportsView
-              products={products}
-              warehouses={warehouses}
-              stockMovements={stockMovements}
-              purchaseOrders={purchaseOrders}
-              salesOrders={salesOrders}
-              invoices={invoices}
-            />
-          )}
+            {currentView === 'reports' && (
+              <ReportsView
+                products={products}
+                warehouses={warehouses}
+                stockMovements={stockMovements}
+                purchaseOrders={purchaseOrders}
+                salesOrders={salesOrders}
+                invoices={invoices}
+              />
+            )}
 
-          {currentView === 'user-management' && (
-            <UserManagementView
-              users={allUsers}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-              onSwitchPersona={(r) => {
-                const found = allUsers.find(u => u.role === r);
-                if (found) handleSwitchUser(found);
-              }}
-            />
-          )}
+            {currentView === 'user-management' && (
+              <UserManagementView
+                users={allUsers}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+                onSwitchPersona={(r) => {
+                  const found = allUsers.find(u => u.role === r);
+                  if (found) handleSwitchUser(found);
+                }}
+              />
+            )}
 
-          {currentView === 'audit-logs' && (
-            <AuditLogsView auditLogs={auditLogs} />
-          )}
+            {currentView === 'audit-logs' && (
+              <AuditLogsView auditLogs={auditLogs} />
+            )}
 
-          {currentView === 'settings' && (
-            <SettingsView
-              settings={settings}
-              userRole={currentUser.role}
-              token={jwtToken}
-              onRefresh={() => fetchAppData(jwtToken)}
-            />
-          )}
+            {currentView === 'settings' && (
+              <SettingsView
+                settings={settings}
+                userRole={currentUser.role}
+                token={jwtToken}
+                onRefresh={() => fetchAppData(jwtToken)}
+              />
+            )}
 
-          {currentView === 'master-prd' && <MasterPrdView />}
-          {currentView === 'architecture' && <ArchitectureView />}
+            {currentView === 'master-prd' && <MasterPrdView />}
+            {currentView === 'architecture' && <ArchitectureView />}
+          </ErrorBoundary>
         </main>
       </div>
 

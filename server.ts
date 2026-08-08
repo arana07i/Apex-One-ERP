@@ -2,10 +2,18 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './src/server/presentation/controllers.js';
+import { seedDatabase } from './src/db/seed.js';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Initialize Cloud SQL Seed Data if needed
+  try {
+    await seedDatabase();
+  } catch (seedErr) {
+    console.error('Failed to seed Cloud SQL database:', seedErr);
+  }
 
   // JSON Body Parser
   app.use(express.json());

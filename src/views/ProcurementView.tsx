@@ -16,6 +16,9 @@ import {
   PackageCheck,
   ChevronRight,
   Eye,
+  Timer,
+  AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   PurchaseOrder,
@@ -27,6 +30,67 @@ import {
   Warehouse,
   Role,
 } from '../types';
+
+export interface SlaInfo {
+  status: 'ON_TIME' | 'WARNING' | 'BREACHED';
+  label: string;
+  elapsedHours: number;
+  slaHours: number;
+  percent: number;
+  badgeClass: string;
+  borderClass: string;
+  textClass: string;
+  bgClass: string;
+}
+
+export const getStepSlaInfo = (
+  step: { slaHours?: number; stepStartedAt?: string },
+  fallbackStartTime?: string
+): SlaInfo => {
+  const slaHours = step.slaHours || 24;
+  const startTime = step.stepStartedAt || fallbackStartTime || new Date().toISOString();
+  const elapsedMs = Math.max(0, Date.now() - new Date(startTime).getTime());
+  const elapsedHours = Math.round((elapsedMs / (1000 * 3600)) * 10) / 10;
+  const percent = Math.round((elapsedHours / slaHours) * 100);
+
+  if (percent >= 100) {
+    return {
+      status: 'BREACHED',
+      label: `SLA Breached (${elapsedHours}h / ${slaHours}h SLA)`,
+      elapsedHours,
+      slaHours,
+      percent,
+      badgeClass: 'bg-red-100 text-red-800 dark:bg-red-950/90 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold',
+      borderClass: 'border-red-500 dark:border-red-600',
+      textClass: 'text-red-600 dark:text-red-400',
+      bgClass: 'bg-red-50/90 dark:bg-red-950/40',
+    };
+  } else if (percent >= 75) {
+    return {
+      status: 'WARNING',
+      label: `SLA Caution (${elapsedHours}h / ${slaHours}h SLA)`,
+      elapsedHours,
+      slaHours,
+      percent,
+      badgeClass: 'bg-amber-100 text-amber-900 dark:bg-amber-950/90 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold',
+      borderClass: 'border-amber-500 dark:border-amber-600',
+      textClass: 'text-amber-600 dark:text-amber-400',
+      bgClass: 'bg-amber-50/90 dark:bg-amber-950/40',
+    };
+  } else {
+    return {
+      status: 'ON_TIME',
+      label: `SLA On Time (${elapsedHours}h / ${slaHours}h SLA)`,
+      elapsedHours,
+      slaHours,
+      percent,
+      badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold',
+      borderClass: 'border-emerald-500 dark:border-emerald-600',
+      textClass: 'text-emerald-600 dark:text-emerald-400',
+      bgClass: 'bg-emerald-50/90 dark:bg-emerald-950/40',
+    };
+  }
+};
 
 interface ProcurementViewProps {
   purchaseOrders: PurchaseOrder[];
@@ -823,7 +887,7 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                         );
                       })()}
 
-                      {/* Stepper Node Visualizer */}
+                      {/* Stepper Node Visualizer with SLA Status */}
                       <div className="pt-2 flex items-center justify-between px-2 relative">
                         <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-amber-200/80 dark:bg-amber-900/50 -z-0" />
                         {selectedPr.workflowState.approvalChain.map((step, idx) => {
@@ -831,6 +895,7 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                           const isDone = step.status === 'APPROVED';
                           const isRejected = step.status === 'REJECTED';
                           const isCurrent = idx === wf.currentStepIndex && !wf.isFullyApproved && !wf.isRejected;
+                          const sla = getStepSlaInfo(step, selectedPr.createdAt);
 
                           return (
                             <div key={step.stepNumber} className="relative z-10 flex flex-col items-center group">
@@ -841,7 +906,11 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                                     : isRejected
                                     ? 'bg-red-600 text-white ring-2 ring-red-200 dark:ring-red-900'
                                     : isCurrent
-                                    ? 'bg-amber-500 text-white ring-4 ring-amber-200 dark:ring-amber-900 animate-pulse'
+                                    ? sla.status === 'BREACHED'
+                                      ? 'bg-red-600 text-white ring-4 ring-red-300 dark:ring-red-900 animate-pulse'
+                                      : sla.status === 'WARNING'
+                                      ? 'bg-amber-500 text-white ring-4 ring-amber-300 dark:ring-amber-900 animate-pulse'
+                                      : 'bg-emerald-600 text-white ring-4 ring-emerald-200 dark:ring-emerald-900 animate-pulse'
                                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border border-zinc-300 dark:border-zinc-700'
                                 }`}
                               >
@@ -856,13 +925,19 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                               <span className="text-[9px] font-medium text-zinc-500 dark:text-zinc-400 mt-1 max-w-[70px] text-center truncate">
                                 {step.requiredRole}
                               </span>
+
+                              {isCurrent && (
+                                <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full mt-0.5 ${sla.badgeClass}`}>
+                                  {sla.status === 'BREACHED' ? 'SLA OVERDUE' : sla.status === 'WARNING' ? 'SLA CAUTION' : 'SLA ON TIME'}
+                                </span>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* CURRENT ACTIVE STEP CARD */}
+                    {/* CURRENT ACTIVE STEP CARD WITH SLA TRACKER */}
                     {!selectedPr.workflowState.isFullyApproved && !selectedPr.workflowState.isRejected && (
                       <div className="p-3 bg-white dark:bg-zinc-900 border-2 border-amber-400 dark:border-amber-600 rounded-xl space-y-2.5 shadow-xs">
                         {(() => {
@@ -870,6 +945,7 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                           const activeStep = wf.approvalChain[wf.currentStepIndex];
                           if (!activeStep) return null;
                           const isAuthorized = userRole === activeStep.requiredRole || userRole === Role.Admin;
+                          const sla = getStepSlaInfo(activeStep, selectedPr.createdAt);
 
                           return (
                             <>
@@ -881,6 +957,50 @@ export const ProcurementView: React.FC<ProcurementViewProps> = ({
                                 <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 text-[10px] font-bold font-mono border border-amber-200 dark:border-amber-800">
                                   Required Role: {activeStep.requiredRole}
                                 </span>
+                              </div>
+
+                              {/* SLA TIME TRACKER INDICATOR */}
+                              <div className={`p-2.5 rounded-lg border ${sla.bgClass} ${sla.borderClass} space-y-1.5`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <Timer className={`w-4 h-4 ${sla.textClass}`} />
+                                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                                      Service Level Agreement (SLA)
+                                    </span>
+                                  </div>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${sla.badgeClass}`}>
+                                    {sla.status === 'BREACHED' ? '🔴 BREACHED' : sla.status === 'WARNING' ? '🟡 CAUTION' : '🟢 ON TIME'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-zinc-600 dark:text-zinc-400">
+                                    Elapsed: <strong className="font-mono">{sla.elapsedHours}h</strong> / Target: <strong className="font-mono">{sla.slaHours}h</strong>
+                                  </span>
+                                  <span className={`font-mono font-bold ${sla.textClass}`}>
+                                    {sla.percent}% of SLA limit
+                                  </span>
+                                </div>
+
+                                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${
+                                      sla.status === 'BREACHED'
+                                        ? 'bg-red-600'
+                                        : sla.status === 'WARNING'
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, sla.percent)}%` }}
+                                  />
+                                </div>
+
+                                {sla.status === 'BREACHED' && (
+                                  <p className="text-[10px] text-red-700 dark:text-red-300 flex items-center gap-1 font-semibold">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+                                    <span>This approval step has exceeded the {sla.slaHours}h target window. Immediate action required.</span>
+                                  </p>
+                                )}
                               </div>
 
                               <div>

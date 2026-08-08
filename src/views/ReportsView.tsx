@@ -53,31 +53,34 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       rows = products.map(p => ({
         SKU: p.sku,
         Name: p.name,
-        Category: p.categoryName,
-        Brand: p.brandName,
+        Category: p.category,
+        Brand: p.brandName || 'N/A',
         QuantityOnHand: p.totalQuantityOnHand,
         CostPriceUSD: p.costPrice,
         SellingPriceUSD: p.sellingPrice,
         TotalInventoryValueUSD: (p.totalQuantityOnHand * p.costPrice).toFixed(2),
       }));
     } else if (reportType === 'reorder') {
-      rows = lowStockItems.map(p => ({
-        SKU: p.sku,
-        Name: p.name,
-        CurrentQuantity: p.totalQuantityOnHand,
-        ReorderPoint: p.reorderPoint,
-        ReorderQuantity: p.reorderQuantity,
-        CostPriceUSD: p.costPrice,
-        EstReorderCostUSD: (p.reorderQuantity * p.costPrice).toFixed(2),
-      }));
+      rows = lowStockItems.map(p => {
+        const reorderQty = Math.max(0, p.maxStockLevel - p.totalQuantityOnHand);
+        return {
+          SKU: p.sku,
+          Name: p.name,
+          CurrentQuantity: p.totalQuantityOnHand,
+          ReorderPoint: p.reorderPoint,
+          ReorderQuantity: reorderQty,
+          CostPriceUSD: p.costPrice,
+          EstReorderCostUSD: (reorderQty * p.costPrice).toFixed(2),
+        };
+      });
     } else {
       rows = stockMovements.map(m => ({
         MovementID: m.id,
-        Timestamp: m.createdAt,
+        Timestamp: m.timestamp,
         SKU: m.productSku,
-        Type: m.type,
-        QtyChange: m.quantityChange,
-        BalanceAfter: m.balanceAfter,
+        Type: m.movementType,
+        QtyChange: m.quantity,
+        UnitCostUSD: m.unitCostAtMovement,
         PerformedBy: m.performedByUserName,
       }));
     }
@@ -200,8 +203,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                       <td className="p-3 font-mono font-bold text-zinc-900 dark:text-zinc-100">{p.sku}</td>
                       <td className="p-3 font-medium text-zinc-800 dark:text-zinc-200">{p.name}</td>
-                      <td className="p-3 text-zinc-500">{p.categoryName}</td>
-                      <td className="p-3 text-center font-mono font-bold">{p.totalQuantityOnHand} {p.uomCode}</td>
+                      <td className="p-3 text-zinc-500">{p.category}</td>
+                      <td className="p-3 text-center font-mono font-bold">{p.totalQuantityOnHand} {p.unitOfMeasure}</td>
                       <td className="p-3 text-right font-mono">${p.costPrice.toFixed(2)}</td>
                       <td className="p-3 text-right font-mono font-bold text-zinc-900 dark:text-zinc-100">
                         ${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -231,18 +234,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                 {lowStockItems.length > 0 ? (
-                  lowStockItems.map(p => (
-                    <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                      <td className="p-3 font-mono font-bold text-amber-600 dark:text-amber-400">{p.sku}</td>
-                      <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
-                      <td className="p-3 text-center font-mono font-bold text-red-600 dark:text-red-400">{p.totalQuantityOnHand}</td>
-                      <td className="p-3 text-center font-mono text-zinc-500">{p.reorderPoint}</td>
-                      <td className="p-3 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">+{p.reorderQuantity}</td>
-                      <td className="p-3 text-right font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        ${(p.reorderQuantity * p.costPrice).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))
+                  lowStockItems.map(p => {
+                    const reorderQty = Math.max(0, p.maxStockLevel - p.totalQuantityOnHand);
+                    return (
+                      <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                        <td className="p-3 font-mono font-bold text-amber-600 dark:text-amber-400">{p.sku}</td>
+                        <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{p.name}</td>
+                        <td className="p-3 text-center font-mono font-bold text-red-600 dark:text-red-400">{p.totalQuantityOnHand}</td>
+                        <td className="p-3 text-center font-mono text-zinc-500">{p.reorderPoint}</td>
+                        <td className="p-3 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">+{reorderQty}</td>
+                        <td className="p-3 text-right font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                          ${(reorderQty * p.costPrice).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-zinc-400 text-xs">
@@ -266,20 +272,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <th className="p-3">Product SKU</th>
                   <th className="p-3">Movement Type</th>
                   <th className="p-3 text-center">Qty Change</th>
-                  <th className="p-3 text-center">Balance After</th>
+                  <th className="p-3 text-center">Unit Cost</th>
                   <th className="p-3">Performed By</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                 {stockMovements.map(m => (
                   <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                    <td className="p-3 font-mono text-zinc-400">{new Date(m.createdAt).toLocaleString()}</td>
+                    <td className="p-3 font-mono text-zinc-400">{new Date(m.timestamp).toLocaleString()}</td>
                     <td className="p-3 font-mono font-bold text-zinc-900 dark:text-zinc-100">{m.productSku}</td>
-                    <td className="p-3 font-semibold text-zinc-700 dark:text-zinc-300">{m.type}</td>
-                    <td className={`p-3 text-center font-mono font-bold ${m.quantityChange > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {m.quantityChange > 0 ? `+${m.quantityChange}` : m.quantityChange}
+                    <td className="p-3 font-semibold text-zinc-700 dark:text-zinc-300">{m.movementType}</td>
+                    <td className={`p-3 text-center font-mono font-bold ${m.quantity > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                     </td>
-                    <td className="p-3 text-center font-mono text-zinc-800 dark:text-zinc-200">{m.balanceAfter}</td>
+                    <td className="p-3 text-center font-mono text-zinc-800 dark:text-zinc-200">${m.unitCostAtMovement.toFixed(2)}</td>
                     <td className="p-3 text-zinc-500">{m.performedByUserName}</td>
                   </tr>
                 ))}

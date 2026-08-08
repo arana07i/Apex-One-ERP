@@ -162,12 +162,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                 {users
-                  .filter(u => u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || u.username.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map(u => (
                     <tr key={u.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                       <td className="p-3">
-                        <div className="font-bold text-zinc-900 dark:text-zinc-100">{u.fullName}</div>
-                        <div className="text-[10px] font-mono text-zinc-400">@{u.username}</div>
+                        <div className="font-bold text-zinc-900 dark:text-zinc-100">{u.name}</div>
+                        <div className="text-[10px] font-mono text-zinc-400">{u.department}</div>
                       </td>
                       <td className="p-3 text-zinc-600 dark:text-zinc-400">{u.email}</td>
                       <td className="p-3">
@@ -177,11 +177,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       </td>
                       <td className="p-3 text-center">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                          {u.isActive ? 'Active' : 'Disabled'}
+                          {u.status || 'Active'}
                         </span>
                       </td>
                       <td className="p-3 text-right font-mono text-[11px] text-zinc-400">
-                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleTimeString() : 'Recent'}
+                        {u.lastLogin ? new Date(u.lastLogin).toLocaleTimeString() : 'Recent'}
                       </td>
                     </tr>
                   ))}
