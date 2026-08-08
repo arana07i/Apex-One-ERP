@@ -1,12 +1,11 @@
 {
-  // Wrong, use own config
-  "projectId": "bright-objective-6dw7755",
-  "appId": "1:1073342560460:web:7f4d6ea553adecb37f4ea69",
-  "apiKey": "AIzaSyBzXIouT5qzLAqf9DsnFQf55nXyN4BdwG0U",
-  "authDomain": "bright-objective-65dw77.firebaseapp.com",
-  "storageBucket": "bright-objective-65dw77.firebasestorage.app",
-  "messagingSenderId": "10733425604650",
+  "projectId": "",
+  "appId": "",
+  "apiKey": "",
+  "authDomain": "",
+  "storageBucket": "",
+  "messagingSenderId": "",
   "measurementId": "",
-  "oAuthClientId": "10733425604650-v3scll3m8vhhi9kpu52v68bevehmolnu.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

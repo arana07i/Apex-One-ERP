@@ -11,16 +11,17 @@ declare global {
 export const createPool = () => {
   if (!global._postgresPool) {
     global._postgresPool = new Pool({
-      host: process.env.SQL_HOST,
-      user: process.env.SQL_USER,
-      password: process.env.SQL_PASSWORD,
-      database: process.env.SQL_DB_NAME,
+      host: process.env.SQL_HOST || '127.0.0.1',
+      user: process.env.SQL_USER || 'postgres',
+      password: process.env.SQL_PASSWORD || '',
+      database: process.env.SQL_DB_NAME || 'postgres',
       max: 10,
-      connectionTimeoutMillis: 15000,
+      connectionTimeoutMillis: 3000,
     });
 
     global._postgresPool.on('error', (err: Error) => {
-      console.error('Unexpected error on idle SQL pool client:', err);
+      // Prevent unhandled pool client errors from crashing process
+      console.warn('SQL Pool background notice:', err.message);
     });
   }
   return global._postgresPool;

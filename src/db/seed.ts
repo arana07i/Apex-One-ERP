@@ -57,6 +57,11 @@ import {
 import { count } from 'drizzle-orm';
 
 export async function seedDatabase() {
+  if (!process.env.SQL_HOST && !process.env.SQL_DB_NAME) {
+    console.log('ℹ️ No SQL_HOST configured in environment variables. Skipping Cloud SQL seeding (app will run with in-memory ERP store).');
+    return;
+  }
+
   try {
     const [{ value: userCount }] = await db.select({ value: count() }).from(users);
     if (Number(userCount) > 0) {
@@ -517,7 +522,13 @@ export async function seedDatabase() {
     }).onConflictDoNothing();
 
     console.log('✅ Cloud SQL Database successfully seeded with ERP data!');
-  } catch (err) {
-    console.error('Error seeding Cloud SQL database:', err);
+  } catch (err: any) {
+    const code = err?.code || err?.cause?.code || err?.parent?.code;
+    if (code === 'ECONNREFUSED') {
+      console.warn('⚠️ Could not connect to PostgreSQL database at ' + (process.env.SQL_HOST || 'localhost') + ': ECONNREFUSED.');
+      console.warn('💡 Tip for local dev: If you want to connect to local PostgreSQL, update .env with your credentials and start PostgreSQL. Otherwise, the app operates using the built-in ERP engine.');
+    } else {
+      console.warn('⚠️ Cloud SQL database seeding skipped or failed:', err?.message || err);
+    }
   }
 }
